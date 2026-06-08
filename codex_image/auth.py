@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import base64
 import contextlib
-import fcntl
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - exercised by Windows portable builds.
+    fcntl = None
 
 from .http import Transport, UrllibTransport
 
@@ -113,6 +117,9 @@ def _auth_refresh_lock(auth_path: Path):
     lock_path = auth_path.with_suffix(auth_path.suffix + ".lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("w", encoding="utf-8") as lock_file:
+        if fcntl is None:
+            yield
+            return
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             yield

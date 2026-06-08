@@ -79,6 +79,16 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(refreshed.account_id, "acct-fresh")
         self.assertEqual(transport.requests, [])
 
+    def test_auth_refresh_lock_degrades_when_fcntl_is_unavailable(self) -> None:
+        from codex_image import auth
+
+        original_fcntl = auth.fcntl
+        auth.fcntl = None
+        self.addCleanup(setattr, auth, "fcntl", original_fcntl)
+
+        with auth._auth_refresh_lock(self.auth_path):
+            self.assertTrue(self.auth_path.with_suffix(".json.lock").exists())
+
     def test_refresh_auth_state_reports_reused_refresh_token_as_login_required(self) -> None:
         write_auth_file(self.auth_path, access_token="expired-access", refresh_token="reused-refresh", account_id="acct-old")
         error_body = json.dumps(
