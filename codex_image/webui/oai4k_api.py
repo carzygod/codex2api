@@ -228,6 +228,7 @@ def register_oai4k_routes(app: FastAPI, *, media_root: Path, db_path: Path | Non
                 credential.access_token,
                 credential.refresh_token,
                 credential.account_id,
+                credential.id_token,
             )
             created.append(
                 {
@@ -255,17 +256,17 @@ def register_oai4k_routes(app: FastAPI, *, media_root: Path, db_path: Path | Non
             raise HTTPException(status_code=404, detail="account not found")
         try:
             client = _client_from_account(account)
-            payload = client.build_payload(
+            result = client.generate_image(
                 prompt="health check",
                 model=DEFAULT_IMAGE_MODEL,
                 size="1024x1024",
                 quality="low",
                 output_format="png",
-                n=1,
             )
-            if payload.get("model"):
+            if result.image_bytes:
+                _persist_refreshed_account_tokens(db, account, client)
                 db.update_account_status(account_pk, "active")
-                return {"success": True, "status": "active", "message": "client payload is buildable"}
+                return {"success": True, "status": "active", "message": "default model returned an image"}
         except Exception as exc:
             db.update_account_status(account_pk, "error")
             return {"success": False, "status": "error", "error": str(exc)}
@@ -360,7 +361,7 @@ async def _run_image_request(
     output_compression = _optional_int(body.get("output_compression"))
 
     try:
-        client = _client_from_token(token, account_id=str(account.get("account_id") or "") if account else "")
+        client = _client_from_account(account) if account else _client_from_token(token)
         if input_images:
             results = client.edit_images(
                 prompt=prompt,
@@ -394,6 +395,7 @@ async def _run_image_request(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     if account:
+        _persist_refreshed_account_tokens(db, account, client)
         db.update_account_status(int(account["id"]), "active")
 
     created = int(time.time())
@@ -436,7 +438,37 @@ def _resolve_generation_token(db: OAI4KDatabase, authorization: str) -> tuple[st
 
 
 def _client_from_account(account: dict[str, Any]) -> CodexImagesImageClient:
-    return _client_from_token(str(account["access_token"]), account_id=str(account.get("account_id") or ""))
+    account_pk = str(account.get("id") or "inline").strip() or "inline"
+    auth_root = Path(os.environ.get("OAI4K_INLINE_AUTH_PATH", str(Path("output") / "oai4k-inline-auth.json"))).parent
+    auth_path = auth_root / f"oai4k-account-{account_pk}.auth.json"
+    access_token = str(account.get("access_token") or "")
+    refresh_token = str(account.get("refresh_token") or "")
+    id_token = str(account.get("id_token") or "")
+    account_id = str(account.get("account_id") or "")
+    raw = {
+        "auth_mode": "chatgpt",
+        "OPENAI_API_KEY": None,
+        "tokens": {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "id_token": id_token,
+            "account_id": account_id,
+        },
+    }
+    state = AuthState(
+        path=auth_path,
+        access_token=access_token,
+        refresh_token=refresh_token,
+        id_token=id_token,
+        account_id=account_id,
+        last_refresh=None,
+        raw=raw,
+    )
+    return CodexImagesImageClient(
+        state,
+        base_url=os.environ.get("OAI4K_CODEX_IMAGES_BASE_URL", DEFAULT_CODEX_IMAGES_BASE_URL),
+        image_model=DEFAULT_IMAGE_MODEL,
+    )
 
 
 def _client_from_token(token: str, *, account_id: str = "") -> CodexImagesImageClient:
@@ -454,6 +486,26 @@ def _client_from_token(token: str, *, account_id: str = "") -> CodexImagesImageC
         base_url=os.environ.get("OAI4K_CODEX_IMAGES_BASE_URL", DEFAULT_CODEX_IMAGES_BASE_URL),
         image_model=DEFAULT_IMAGE_MODEL,
     )
+
+
+def _persist_refreshed_account_tokens(db: OAI4KDatabase, account: dict[str, Any], client: CodexImagesImageClient) -> None:
+    account_pk = int(account["id"])
+    state = client.auth_state
+    current = (
+        str(account.get("access_token") or ""),
+        str(account.get("refresh_token") or ""),
+        str(account.get("id_token") or ""),
+        str(account.get("account_id") or ""),
+    )
+    refreshed = (state.access_token, state.refresh_token, state.id_token, state.account_id)
+    if refreshed != current:
+        db.update_account_tokens(
+            account_pk,
+            access_token=state.access_token,
+            refresh_token=state.refresh_token,
+            id_token=state.id_token,
+            account_id=state.account_id,
+        )
 
 
 def _normalize_model(value: Any) -> str:

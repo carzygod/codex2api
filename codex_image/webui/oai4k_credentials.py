@@ -151,7 +151,7 @@ def _credential_from_raw(raw: Any, *, fallback_name: str, index: int) -> ParsedO
         credentials = _as_obj(raw.get("credentials"))
         extra = _as_obj(raw.get("extra"))
         access_token = _first(credentials.get("access_token"), credentials.get("accessToken"))
-        refresh_token = _first(credentials.get("refresh_token"), credentials.get("refreshToken"), credentials.get("session_token"))
+        refresh_token = _first(credentials.get("refresh_token"), credentials.get("refreshToken"))
         id_token = _first(credentials.get("id_token"), credentials.get("idToken"))
         account_id = _first(
             credentials.get("chatgpt_account_id"),
@@ -191,17 +191,12 @@ def _credential_from_raw(raw: Any, *, fallback_name: str, index: int) -> ParsedO
     refresh_token = _first(
         raw.get("refresh_token"),
         raw.get("refreshToken"),
-        raw.get("session_token"),
-        raw.get("sessionToken"),
         tokens.get("refresh_token"),
         tokens.get("refreshToken"),
-        tokens.get("session_token"),
-        tokens.get("sessionToken"),
         token_obj.get("refresh_token"),
         token_obj.get("refreshToken"),
         credentials.get("refresh_token"),
         credentials.get("refreshToken"),
-        credentials.get("session_token"),
     )
     id_token = _first(
         raw.get("id_token"),

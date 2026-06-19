@@ -35,6 +35,7 @@ class OAI4KCredentialParserTests(unittest.TestCase):
 
     def test_parse_cpa_flat_json(self) -> None:
         token = _jwt("acct-cpa")
+        id_token = _jwt("acct-id-token")
         credentials = parse_oai4k_account_material(
             json.dumps(
                 {
@@ -42,6 +43,7 @@ class OAI4KCredentialParserTests(unittest.TestCase):
                     "name": "CPA Account",
                     "access_token": token,
                     "refresh_token": "refresh-cpa",
+                    "id_token": id_token,
                     "chatgpt_account_id": "acct-cpa-explicit",
                 }
             )
@@ -52,7 +54,23 @@ class OAI4KCredentialParserTests(unittest.TestCase):
         self.assertEqual(credentials[0].name, "CPA Account")
         self.assertEqual(credentials[0].access_token, token)
         self.assertEqual(credentials[0].refresh_token, "refresh-cpa")
+        self.assertEqual(credentials[0].id_token, id_token)
         self.assertEqual(credentials[0].account_id, "acct-cpa-explicit")
+
+    def test_parse_cpa_session_token_is_not_refresh_token(self) -> None:
+        credentials = parse_oai4k_account_material(
+            json.dumps(
+                {
+                    "type": "codex",
+                    "name": "CPA Session Only",
+                    "access_token": _jwt("acct-cpa-session"),
+                    "session_token": "web-session-token",
+                    "chatgpt_account_id": "acct-cpa-session",
+                }
+            )
+        )
+
+        self.assertEqual(credentials[0].refresh_token, "")
 
     def test_parse_sub2api_multiple_accounts(self) -> None:
         payload = {
@@ -90,6 +108,7 @@ class OAI4KCredentialParserTests(unittest.TestCase):
                     "tokens": {
                         "access_token": token,
                         "refresh_token": "refresh-auth",
+                        "id_token": "id-auth",
                         "account_id": "acct-auth-explicit",
                     },
                 }
@@ -101,6 +120,7 @@ class OAI4KCredentialParserTests(unittest.TestCase):
         self.assertEqual(credentials[0].source_format, "auth.json")
         self.assertEqual(credentials[0].name, "auth-json")
         self.assertEqual(credentials[0].refresh_token, "refresh-auth")
+        self.assertEqual(credentials[0].id_token, "id-auth")
         self.assertEqual(credentials[0].account_id, "acct-auth-explicit")
 
     def test_parse_codex_manager(self) -> None:

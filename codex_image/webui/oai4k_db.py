@@ -47,6 +47,7 @@ class OAI4KDatabase:
                     name TEXT NOT NULL,
                     access_token TEXT NOT NULL,
                     refresh_token TEXT DEFAULT '',
+                    id_token TEXT DEFAULT '',
                     account_id TEXT DEFAULT '',
                     token_preview TEXT NOT NULL,
                     status TEXT DEFAULT 'unknown',
@@ -91,6 +92,13 @@ class OAI4KDatabase:
                 CREATE INDEX IF NOT EXISTS idx_logs_created_at ON logs(created_at DESC);
                 """
             )
+            self._ensure_column(conn, "oai4k_accounts", "id_token", "TEXT DEFAULT ''")
+
+    @staticmethod
+    def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        if column not in {str(row["name"]) for row in rows}:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     @staticmethod
     def _now() -> int:
@@ -164,16 +172,23 @@ class OAI4KDatabase:
         with self._connect() as conn:
             conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
 
-    def add_account(self, name: str, access_token: str, refresh_token: str = "", account_id: str = "") -> int:
+    def add_account(
+        self,
+        name: str,
+        access_token: str,
+        refresh_token: str = "",
+        account_id: str = "",
+        id_token: str = "",
+    ) -> int:
         now = self._now()
         with self._connect() as conn:
             cursor = conn.execute(
                 """
                 INSERT INTO oai4k_accounts
-                  (name, access_token, refresh_token, account_id, token_preview, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                  (name, access_token, refresh_token, id_token, account_id, token_preview, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (name, access_token, refresh_token, account_id, self.preview(access_token), now),
+                (name, access_token, refresh_token, id_token, account_id, self.preview(access_token), now),
             )
             return int(cursor.lastrowid)
 
@@ -201,6 +216,35 @@ class OAI4KDatabase:
             conn.execute(
                 "UPDATE oai4k_accounts SET status = ?, last_check = ? WHERE id = ?",
                 (status, self._now(), account_id),
+            )
+
+    def update_account_tokens(
+        self,
+        account_pk: int,
+        *,
+        access_token: str,
+        refresh_token: str,
+        id_token: str,
+        account_id: str,
+    ) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE oai4k_accounts
+                SET access_token = ?, refresh_token = ?, id_token = ?, account_id = ?,
+                    token_preview = ?, status = ?, last_check = ?
+                WHERE id = ?
+                """,
+                (
+                    access_token,
+                    refresh_token,
+                    id_token,
+                    account_id,
+                    self.preview(access_token),
+                    "active",
+                    self._now(),
+                    account_pk,
+                ),
             )
 
     def delete_account(self, account_id: int) -> None:
