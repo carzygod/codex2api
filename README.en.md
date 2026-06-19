@@ -50,13 +50,17 @@ This project does not support QR login, ChatGPT username/password login, browser
 
 | Model ID | Upstream model | Type | Notes |
 | --- | --- | --- | --- |
-| `gpt-image-2` | `gpt-image-2` | image | Recommended |
-| `oai-4k-gpt-image-2` | `gpt-image-2` | image | Project alias |
+| `gpt-image-2-4k` | `gpt-image-2` | image | Recommended public 4K model |
+| `oai-4k-gpt-image-2-4k` | `gpt-image-2` | image | Project alias |
 
 The API also accepts these aliases and normalizes them to `gpt-image-2`:
 
+- `oai-4k-gpt-image-2-4k`
+- `gpt-image-2-4k`
 - `oai-4k-gpt-image-2`
+- `codex-gpt-image-2-4k`
 - `codex-gpt-image-2`
+- `pro-codex-gpt-image-2-4k`
 - `pro-codex-gpt-image-2`
 
 ## Supported Sizes
@@ -160,7 +164,7 @@ curl http://127.0.0.1:18788/v1/images/generations \
   -H "Authorization: Bearer sk-oai4k-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-image-2",
+    "model": "gpt-image-2-4k",
     "prompt": "A cute cat sitting on a glass desk, cinematic studio light",
     "size": "1024x1024",
     "quality": "low",
@@ -177,7 +181,7 @@ curl http://127.0.0.1:18788/v1/images/edits \
   -H "Authorization: Bearer sk-oai4k-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-image-2",
+    "model": "gpt-image-2-4k",
     "prompt": "Keep the character, change the background to a neon street",
     "size": "1536x864",
     "images": ["https://example.com/input.png"]
@@ -189,7 +193,7 @@ Multipart image edit:
 ```bash
 curl http://127.0.0.1:18788/v1/images/edits \
   -H "Authorization: Bearer sk-oai4k-your-key" \
-  -F "model=gpt-image-2" \
+  -F "model=gpt-image-2-4k" \
   -F "prompt=Make it look like a premium poster" \
   -F "size=1536x864" \
   -F "image=@input.png"
@@ -203,7 +207,7 @@ Add it as an OpenAI-compatible channel:
 | --- | --- |
 | Base URL | `http://your-server-ip:18788/v1` |
 | API Key | A dashboard-created `sk-oai4k-...` key |
-| Models | `gpt-image-2`, `oai-4k-gpt-image-2` |
+| Models | `gpt-image-2-4k`, `oai-4k-gpt-image-2-4k` |
 | Type | Image model / OpenAI-compatible |
 
 Notes:

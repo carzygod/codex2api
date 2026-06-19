@@ -23,7 +23,7 @@ from codex_image.webui.oai4k_db import OAI4KDatabase
 
 OAI4K_MODELS = [
     {
-        "id": "gpt-image-2",
+        "id": "gpt-image-2-4k",
         "object": "model",
         "owned_by": "openai-codex-web",
         "type": "image",
@@ -37,7 +37,7 @@ OAI4K_MODELS = [
         },
     },
     {
-        "id": "oai-4k-gpt-image-2",
+        "id": "oai-4k-gpt-image-2-4k",
         "object": "model",
         "owned_by": "OAI-4K-01",
         "type": "image",
@@ -511,6 +511,10 @@ def _persist_refreshed_account_tokens(db: OAI4KDatabase, account: dict[str, Any]
 def _normalize_model(value: Any) -> str:
     raw = str(value or DEFAULT_IMAGE_MODEL).strip()
     aliases = {
+        "gpt-image-2-4k": "gpt-image-2",
+        "oai-4k-gpt-image-2-4k": "gpt-image-2",
+        "codex-gpt-image-2-4k": "gpt-image-2",
+        "pro-codex-gpt-image-2-4k": "gpt-image-2",
         "oai-4k-gpt-image-2": "gpt-image-2",
         "codex-gpt-image-2": "gpt-image-2",
         "pro-codex-gpt-image-2": "gpt-image-2",
@@ -820,7 +824,7 @@ def _dashboard_html() -> str:
 Authorization: Bearer sk-oai4k-...
 Content-Type: application/json
 
-{"model":"gpt-image-2","prompt":"a cinematic cat","size":"3840x2160","quality":"high","response_format":"url"}</pre>
+{"model":"gpt-image-2-4k","prompt":"a cinematic cat","size":"3840x2160","quality":"high","response_format":"url"}</pre>
           <b>图生图 / 参考图</b><pre>POST /v1/images/edits
 POST /v1/images/compositions</pre>
         </div>

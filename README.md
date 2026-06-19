@@ -56,13 +56,17 @@
 
 | 模型 ID | 实际上游模型 | 类型 | 说明 |
 | --- | --- | --- | --- |
-| `gpt-image-2` | `gpt-image-2` | image | 推荐直接使用 |
-| `oai-4k-gpt-image-2` | `gpt-image-2` | image | 本项目别名 |
+| `gpt-image-2-4k` | `gpt-image-2` | image | 推荐对外使用 |
+| `oai-4k-gpt-image-2-4k` | `gpt-image-2` | image | 本项目别名 |
 
 请求中也接受以下别名，并会归一化为 `gpt-image-2`：
 
+- `oai-4k-gpt-image-2-4k`
+- `gpt-image-2-4k`
 - `oai-4k-gpt-image-2`
+- `codex-gpt-image-2-4k`
 - `codex-gpt-image-2`
+- `pro-codex-gpt-image-2-4k`
 - `pro-codex-gpt-image-2`
 
 ## 支持尺寸
@@ -174,7 +178,7 @@ curl http://127.0.0.1:18788/v1/images/generations \
   -H "Authorization: Bearer sk-oai4k-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-image-2",
+    "model": "gpt-image-2-4k",
     "prompt": "A cute cat sitting on a glass desk, cinematic studio light",
     "size": "1024x1024",
     "quality": "low",
@@ -206,7 +210,7 @@ curl http://127.0.0.1:18788/v1/images/generations \
   -H "Authorization: Bearer sk-oai4k-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-image-2",
+    "model": "gpt-image-2-4k",
     "prompt": "A clean 4K product render of a white cube",
     "size": "3840x2160",
     "response_format": "b64_json"
@@ -222,7 +226,7 @@ curl http://127.0.0.1:18788/v1/images/edits \
   -H "Authorization: Bearer sk-oai4k-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-image-2",
+    "model": "gpt-image-2-4k",
     "prompt": "Keep the character, change the background to a neon street",
     "size": "1536x864",
     "images": [
@@ -236,7 +240,7 @@ Multipart 方式：
 ```bash
 curl http://127.0.0.1:18788/v1/images/edits \
   -H "Authorization: Bearer sk-oai4k-your-key" \
-  -F "model=gpt-image-2" \
+  -F "model=gpt-image-2-4k" \
   -F "prompt=Make it look like a premium poster" \
   -F "size=1536x864" \
   -F "image=@input.png"
@@ -250,7 +254,7 @@ curl http://127.0.0.1:18788/v1/images/edits \
 | --- | --- |
 | Base URL | `http://你的服务器IP:18788/v1` |
 | API Key | dashboard 中创建的 `sk-oai4k-...` |
-| 模型 | `gpt-image-2`、`oai-4k-gpt-image-2` |
+| 模型 | `gpt-image-2-4k`、`oai-4k-gpt-image-2-4k` |
 | 类型 | 图片模型 / OpenAI-compatible |
 
 注意：
