@@ -412,7 +412,7 @@ def _client_from_account(account: dict[str, Any]) -> CodexImagesImageClient:
 
 def _client_from_token(token: str, *, account_id: str = "") -> CodexImagesImageClient:
     state = AuthState(
-        path=Path("output") / "oai4k-inline-auth.json",
+        path=Path(os.environ.get("OAI4K_INLINE_AUTH_PATH", str(Path("output") / "oai4k-inline-auth.json"))),
         access_token=token,
         refresh_token="",
         id_token="",

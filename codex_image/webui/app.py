@@ -4,6 +4,7 @@ import base64
 from io import BytesIO
 import json
 import mimetypes
+import os
 import zipfile
 from pathlib import Path
 from typing import Any, Callable
@@ -528,4 +529,12 @@ def _mark_task_cancelled(storage: TaskStorage, task_id: str) -> dict[str, Any]:
     return metadata
 
 
-app = create_app()
+def _env_path(name: str) -> Path | None:
+    value = os.environ.get(name, "").strip()
+    return Path(value) if value else None
+
+
+app = create_app(
+    output_root=_env_path("OAI4K_OUTPUT_ROOT") or DEFAULT_WEBUI_OUTPUT_ROOT,
+    source_data_root=_env_path("OAI4K_SOURCE_DATA_ROOT"),
+)
