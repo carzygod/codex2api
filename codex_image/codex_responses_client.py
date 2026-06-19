@@ -4,7 +4,9 @@ import base64
 import json
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc
 from os import PathLike
 from pathlib import Path
 from typing import Any
