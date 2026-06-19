@@ -6,6 +6,7 @@ It keeps the original local image WebUI and adds a managed OpenAI-compatible API
 
 - Use Codex / ChatGPT OAuth `access_token` values as upstream account credentials.
 - Manage upstream accounts and local API keys from `/dashboard`.
+- Import upstream accounts from raw `access_token`, CPA, Sub2API, Codex `auth.json`, and other common formats.
 - Expose `/v1/models`, `/v1/images/generations`, and `/v1/images/edits`.
 - Support `gpt-image-2` text-to-image, image-to-image, and reference image editing.
 - Support native large image sizes, including `3840x2160` and `2160x3840`.
@@ -25,6 +26,7 @@ It keeps the original local image WebUI and adds a managed OpenAI-compatible API
 | Reference composition | Supported | `POST /v1/images/compositions` |
 | Multiple API keys | Supported | Keys can be created, disabled, and deleted in the dashboard |
 | Upstream account pool | Supported | Keys can bind to one account; unbound keys use a random available account |
+| Multi-format account import | Supported | Raw token, CPA, Sub2API, auth.json, Codex-Manager, Cockpit, 9router, ChatGPT session |
 | Video generation | Not supported | `/v1/video/generations` returns `video_not_supported` |
 | Redis | Not required | Management data is stored in SQLite |
 
@@ -215,8 +217,8 @@ Notes:
 
 1. Open `/dashboard`.
 2. Initialize the admin user.
-3. Add a Codex / ChatGPT OAuth `access_token`.
-4. Optionally fill `account_id` so requests include `Chatgpt-Account-Id`.
+3. Import Codex / ChatGPT OAuth account material.
+4. Optionally fill `account_id` as a fallback when the material does not include one; it is sent as `Chatgpt-Account-Id`.
 5. Create an API key.
 6. Use the `sk-oai4k-...` key with `/v1/images/generations` or new-api.
 

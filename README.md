@@ -6,6 +6,7 @@
 
 - 使用 Codex / ChatGPT OAuth `access_token` 作为上游账号材料。
 - 在 `/dashboard` 管理上游账号池和本服务 API Key。
+- 上游账号导入支持裸 `access_token`、CPA、Sub2API、Codex `auth.json` 等多种材料格式。
 - 对外暴露 `/v1/models`、`/v1/images/generations`、`/v1/images/edits`。
 - 支持 `gpt-image-2` 的文生图、图生图、参考图编辑。
 - 支持原生大尺寸请求，包括 `3840x2160` 和 `2160x3840`。
@@ -25,6 +26,7 @@
 | 参考图组合 | 支持 | `POST /v1/images/compositions` |
 | 多 API Key | 支持 | 可在 dashboard 创建、停用、删除 |
 | 上游账号池 | 支持 | API Key 可绑定指定账号；未绑定时随机选择可用账号 |
+| 多格式账号导入 | 支持 | 裸 token、CPA、Sub2API、auth.json、Codex-Manager、Cockpit、9router、ChatGPT session |
 | 视频生成 | 不支持 | `/v1/video/generations` 会返回 `video_not_supported` |
 | Redis | 不需要 | 本项目使用 SQLite 保存管理数据 |
 
@@ -262,17 +264,30 @@ curl http://127.0.0.1:18788/v1/images/edits \
 
 1. 打开 `/dashboard`。
 2. 首次初始化管理员账号。
-3. 在“上游账号”中添加 Codex / ChatGPT OAuth `access_token`。
-4. 可选填写 `account_id`，用于传递 `Chatgpt-Account-Id` 请求头。
+3. 在“上游账号”中导入 Codex / ChatGPT OAuth 账号材料。
+4. 可选填写 `account_id`，用于材料缺少账号 ID 时作为兜底，并最终传递 `Chatgpt-Account-Id` 请求头。
 5. 点击账号检查，确认账号材料格式可构造请求。
 6. 在“API Keys”中创建对外 API Key。
 7. 用 `sk-oai4k-...` 调用 `/v1/images/generations` 或接入 new-api。
 
 账号检查当前主要验证客户端请求材料是否可构造；最终可用性仍以真实生图请求成功为准。
 
-## 获取上游 access_token
+## 导入上游账号材料
 
-本服务需要的是 Codex / ChatGPT OAuth `access_token`。常见来源是本机 Codex 登录态：
+本服务最终需要的是 Codex / ChatGPT OAuth `access_token`。Dashboard 的“导入 Codex 账号”支持直接粘贴多种常见材料格式，并会归一化保存为 `access_token / refresh_token / account_id`：
+
+| 格式 | 是否支持 | 说明 |
+| --- | --- | --- |
+| 裸 `access_token` | 支持 | 直接粘贴 token 字符串 |
+| Codex `auth.json` | 支持 | `tokens.access_token`、`tokens.refresh_token`、`tokens.account_id` |
+| CPA | 支持 | `type=codex` 平铺结构，读取 `access_token`、`refresh_token`、`account_id` |
+| Sub2API | 支持 | 读取 `accounts[].credentials.access_token`，可一次导入多账号 |
+| Codex-Manager | 支持 | 读取 `tokens + meta` 双块结构 |
+| Cockpit | 支持 | 读取 `tokens.access_token` 和外层账号信息 |
+| 9router | 支持 | 读取 `accessToken + providerSpecificData` |
+| ChatGPT session JSON | 支持 | 读取 `accessToken`、`user`、`account` |
+
+Codex `auth.json` 的常见来源是本机 Codex 登录态：
 
 ```text
 ~/.codex/auth.json
@@ -290,7 +305,36 @@ curl http://127.0.0.1:18788/v1/images/edits \
 }
 ```
 
-填入 dashboard 时只需要 `access_token`。如果你知道对应的 ChatGPT account id，也可以填入 `account_id`。
+CPA 示例：
+
+```json
+{
+  "type": "codex",
+  "name": "Codex Plus",
+  "access_token": "eyJ...",
+  "refresh_token": "",
+  "account_id": "acc_..."
+}
+```
+
+Sub2API 示例：
+
+```json
+{
+  "accounts": [
+    {
+      "name": "Codex Plus",
+      "credentials": {
+        "access_token": "eyJ...",
+        "refresh_token": "",
+        "chatgpt_account_id": "acc_..."
+      }
+    }
+  ]
+}
+```
+
+如果材料里没有账号 ID，但你知道对应的 ChatGPT account id，可以在 dashboard 的 `ChatGPT Account ID` 兜底字段里填写。
 
 不要把 `auth.json`、`access_token`、API Key、SQLite 数据库或生成结果提交到 Git。
 

@@ -17,6 +17,7 @@ from PIL import Image
 
 from codex_image.auth import AuthState
 from codex_image.client import DEFAULT_CODEX_IMAGES_BASE_URL, DEFAULT_IMAGE_MODEL, CodexImagesImageClient
+from codex_image.webui.oai4k_credentials import parse_oai4k_account_material
 from codex_image.webui.oai4k_db import OAI4KDatabase
 
 
@@ -208,13 +209,41 @@ def register_oai4k_routes(app: FastAPI, *, media_root: Path, db_path: Path | Non
         _require_dashboard_auth(db, request)
         body = await request.json()
         name = str(body.get("name") or "").strip()
-        access_token = str(body.get("access_token") or body.get("token") or "").strip()
+        material = str(body.get("access_token") or body.get("token") or body.get("material") or "").strip()
         refresh_token = str(body.get("refresh_token") or "").strip()
         account_id = str(body.get("account_id") or "").strip()
-        if not name or not access_token:
-            raise HTTPException(status_code=400, detail="name and access_token are required")
-        account_pk = db.add_account(name, access_token, refresh_token, account_id)
-        return {"success": True, "id": account_pk}
+        try:
+            credentials = parse_oai4k_account_material(
+                material,
+                fallback_name=name,
+                fallback_refresh_token=refresh_token,
+                fallback_account_id=account_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        created: list[dict[str, Any]] = []
+        for credential in credentials:
+            account_pk = db.add_account(
+                credential.name,
+                credential.access_token,
+                credential.refresh_token,
+                credential.account_id,
+            )
+            created.append(
+                {
+                    "id": account_pk,
+                    "name": credential.name,
+                    "account_id": credential.account_id,
+                    "source_format": credential.source_format,
+                }
+            )
+        return {
+            "success": True,
+            "id": created[0]["id"] if created else None,
+            "ids": [item["id"] for item in created],
+            "count": len(created),
+            "accounts": created,
+        }
 
     @app.post("/dashboard/accounts/check")
     async def dashboard_check_account(request: Request) -> dict[str, Any]:
@@ -725,7 +754,7 @@ def _dashboard_html() -> str:
         </div>
       </section>
       <section id="accounts" class="panel">
-        <div class="toolbar"><h2>Codex 账号池</h2><button onclick="openAccountModal()">新增账号</button></div>
+        <div class="toolbar"><h2>Codex 账号池</h2><button onclick="openAccountModal()">导入账号</button></div>
         <div class="table-container"><table><thead><tr><th>名称</th><th>Token</th><th>Account ID</th><th>状态</th><th>操作</th></tr></thead><tbody id="accountRows"></tbody></table></div>
       </section>
       <section id="keys" class="panel">
@@ -748,11 +777,17 @@ POST /v1/images/compositions</pre>
   </div>
   <div id="accountModal" class="modal">
     <div class="modal-content">
-      <div class="modal-head"><h2>新增 Codex 账号</h2><button class="ghost" onclick="closeModals()">关闭</button></div>
-      <label>名称</label><input id="accountName" placeholder="Codex Plus / Pro">
-      <label>Access Token</label><textarea id="accountToken" placeholder="粘贴 Codex / ChatGPT OAuth access_token"></textarea>
-      <label>ChatGPT Account ID（可选）</label><input id="accountId" placeholder="账号头 Chatgpt-Account-Id，可留空">
-      <button style="margin-top:16px" onclick="saveAccount()">保存账号</button>
+      <div class="modal-head"><h2>导入 Codex 账号</h2><button class="ghost" onclick="closeModals()">关闭</button></div>
+      <label>名称（可选）</label><input id="accountName" placeholder="Codex Plus / Pro；多账号导入时作为默认名前缀">
+      <label>账号材料</label><textarea id="accountToken" placeholder='支持粘贴：裸 access_token、CPA JSON、Sub2API JSON、Codex auth.json、Codex-Manager、Cockpit、9router、ChatGPT session JSON。
+
+CPA 示例：
+{"type":"codex","access_token":"eyJ...","account_id":"acc_..."}
+
+Sub2API 示例：
+{"accounts":[{"name":"plus","credentials":{"access_token":"eyJ...","chatgpt_account_id":"acc_..."}}]}'></textarea>
+      <label>ChatGPT Account ID（可选兜底）</label><input id="accountId" placeholder="材料里没有 account_id 时才需要填写">
+      <button style="margin-top:16px" onclick="saveAccount()">导入账号</button>
     </div>
   </div>
   <div id="keyModal" class="modal">
@@ -811,8 +846,8 @@ POST /v1/images/compositions</pre>
     function openKeyModal(){ $("newKeyBox").classList.add("hidden"); $("keyModal").classList.add("active"); }
     function closeModals(){ document.querySelectorAll(".modal").forEach(m => m.classList.remove("active")); }
     async function saveAccount(){
-      await api("/dashboard/accounts", {method:"POST", body: JSON.stringify({name:$("accountName").value, access_token:$("accountToken").value, account_id:$("accountId").value})});
-      closeModals(); toast("账号已保存"); await refresh();
+      const result = await api("/dashboard/accounts", {method:"POST", body: JSON.stringify({name:$("accountName").value, access_token:$("accountToken").value, account_id:$("accountId").value})});
+      closeModals(); toast(`已导入 ${result.count || 1} 个账号`); await refresh();
     }
     async function checkAccount(id){ const r = await api("/dashboard/accounts/check", {method:"POST", body: JSON.stringify({id})}); toast(r.success ? "账号可用" : "检查失败"); await refresh(); }
     async function deleteAccount(id){ await api(`/dashboard/accounts?id=${id}`, {method:"DELETE"}); toast("账号已删除"); await refresh(); }
