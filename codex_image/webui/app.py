@@ -115,6 +115,7 @@ from .settings_store import (
 from .context import WebUIContext
 from .events import event_key, event_snapshot, queue_snapshot, queued_or_running_task_ids, sse_message, task_event
 from .routes import register_webui_routes
+from .oai4k_api import register_oai4k_routes
 from .executor import (
     _call_image_client,
     _debug_sse_path,
@@ -269,6 +270,7 @@ def create_app(
     )
     app.mount("/inputs", StaticFiles(directory=input_path, check_dir=False), name="inputs")
     app.mount("/outputs", StaticFiles(directory=output_path, check_dir=False), name="outputs")
+    app.mount("/api-media", StaticFiles(directory=output_path / "api-media", check_dir=False), name="api-media")
     app.mount("/static", NoCacheStaticFiles(directory=static_path, check_dir=False), name="static")
 
     @app.get("/", response_model=None)
@@ -342,6 +344,7 @@ def create_app(
         }
     )
     register_webui_routes(app, ctx)
+    register_oai4k_routes(app, media_root=output_path / "api-media", db_path=source_data_path / "oai4k.db")
 
     return app
 
