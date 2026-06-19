@@ -1,8 +1,8 @@
 [project]
-name = "ilab-gpt-conjure"
+name = "codex2api"
 version = "0.1.0"
-description = "Local-first image generation workbench with WebUI and CLI."
-requires-python = ">=3.11"
+description = "GPT-image-2 Web reverse proxy with dashboard-managed Codex OAuth accounts and OpenAI-compatible image APIs."
+requires-python = ">=3.10"
 
 license = "AGPL-3.0-only"
 [project.scripts]

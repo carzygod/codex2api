@@ -1,257 +1,340 @@
-<h1 align="center">iLab GPT Conjure</h1>
+# codex2api / OAI-4K-01
 
-<p align="center">
-  <sub>GPT-image-2 WebUI 工作台 · Codex Responses / OpenAI 兼容 API · 图库、模板、历史库与并发任务</sub>
-</p>
+`codex2api` 是基于 `kadevin/ilab-gpt-conjure` 改造的 GPT-image-2 Web 反代与管理服务。
 
-<p align="center">
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/releases"><img alt="release" src="https://img.shields.io/github/v/release/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=release&color=0EA5E9"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/kadevin/ilab-gpt-conjure/actions/workflows/ci.yml/badge.svg?branch=main&event=push"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/commits/main"><img alt="last commit" src="https://img.shields.io/github/last-commit/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=last%20commit&color=10B981"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=stars&color=0284C7"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/network/members"><img alt="forks" src="https://img.shields.io/github/forks/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=forks&color=0369A1"></a>
-</p>
+它保留了原仓库的本地图片生成 WebUI，并新增了一层可管理的 OpenAI-compatible API：
 
-<p align="center">
-  <img alt="license AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-22C55E?style=flat-square">
-  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
-  <img alt="FastAPI WebUI" src="https://img.shields.io/badge/WebUI-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white">
-  <img alt="CLI" src="https://img.shields.io/badge/CLI-enabled-334155?style=flat-square">
-  <img alt="OpenAI-Compatible API" src="https://img.shields.io/badge/OpenAI--Compatible-API-111827?style=flat-square">
-  <img alt="Advanced OAuth mode" src="https://img.shields.io/badge/local%20OAuth-advanced%20mode-B45309?style=flat-square">
-</p>
+- 使用 Codex / ChatGPT OAuth `access_token` 作为上游账号材料。
+- 在 `/dashboard` 管理上游账号池和本服务 API Key。
+- 对外暴露 `/v1/models`、`/v1/images/generations`、`/v1/images/edits`。
+- 支持 `gpt-image-2` 的文生图、图生图、参考图编辑。
+- 支持原生大尺寸请求，包括 `3840x2160` 和 `2160x3840`。
+- 默认强校验返回图片尺寸，不做手动裁剪、缩放或补边。
 
+> 本项目不是 OpenAI 官方 API，也不是官方推荐的生产集成方式。它依赖 ChatGPT / Codex Web OAuth 登录态和内部图片接口，接口、风控和额度策略都可能变化。
 
-<p align="center">
-  中文 · <a href="README.en.md">English</a> · <a href="RELEASES.md">下载 / Releases</a>
-</p>
+## 当前能力
 
-<p align="center">
-  <img src="assets/UI_cn.png" alt="iLab GPT Conjure WebUI 截图" width="960" />
-</p>
+| 能力 | 状态 | 说明 |
+| --- | --- | --- |
+| WebUI 工作台 | 支持 | 原仓库的图片生成、图库、历史、队列等功能仍保留 |
+| 管理后台 | 支持 | `/dashboard`，管理平台用户、上游账号、API Key、调用记录 |
+| OpenAI-compatible 模型列表 | 支持 | `GET /v1/models` |
+| 文生图 | 支持 | `POST /v1/images/generations` |
+| 图生图 / 图片编辑 | 支持 | `POST /v1/images/edits` |
+| 参考图组合 | 支持 | `POST /v1/images/compositions` |
+| 多 API Key | 支持 | 可在 dashboard 创建、停用、删除 |
+| 上游账号池 | 支持 | API Key 可绑定指定账号；未绑定时随机选择可用账号 |
+| 视频生成 | 不支持 | `/v1/video/generations` 会返回 `video_not_supported` |
+| Redis | 不需要 | 本项目使用 SQLite 保存管理数据 |
 
-## 简介
+## 登录与认证方式
 
-iLab GPT Conjure 是面向 GPT-image-2 的 AI 图片生成 WebUI 工作台，同时
-提供 CLI 便于本地自动化。它支持 Codex Responses 与 OpenAI 兼容 API 两种
-接入方式，并内置公用图库、多类型 chip 快捷引用、提示词模板、多任务并发、
-分页历史库和本地队列管理。
+严格按 Codex 登录方式计算，项目只支持 **1 种 Codex 登录方式**：
 
-公开版推荐优先使用 OpenAI-compatible API 模式，通过你配置的供应商使用
-Images API 或 Responses API 形态。
+| 类型 | 数量 | 说明 |
+| --- | ---: | --- |
+| Codex 登录方式 | 1 | 复用 Codex / ChatGPT OAuth 登录态中的 `access_token` |
+| Codex 调用模式 | 2 | 原 WebUI 可选 `images` / `responses`，不是两种登录 |
+| 对外 API 认证 | 1 | 本服务生成的 `sk-oai4k-...` API Key |
 
-免安装一键包下载见 [下载 / Releases](RELEASES.md)。
+原仓库默认读取本机 `~/.codex/auth.json`。本 fork 的 `/dashboard` 额外提供账号池管理，你可以把同类 OAuth `access_token` 填入后台，由本服务对外转换成 API Key。
 
-## 功能
+本项目不支持：
 
-- 面向 GPT-image-2 的文生图、参考图生成和图像编辑工作流。
-- 支持 Codex Responses 和 OpenAI 兼容 API 接入；公开或共享使用优先选择 API 模式。
-- 多任务并发、本地队列状态、分页历史库、缩略图和结果归档。
-- 独立 `/history` 页面支持 SQLite 分页、搜索、筛选、网格/列表视图和懒加载详情。
-- Codex 和 API Responses 生图可选启用联网搜索；生成页和历史库搜索支持提示词与任务 ID，并可命中历史任务。
-- 单任务多图输出、部分失败处理和失败重试。
-- 公用图库、最近参考图、颜色 chip、提示词片段 chip 和提示词模板。
-- WebUI 支持中文 / English 语言切换，顶栏可直接切换语言，偏好保存在当前浏览器。
-- 免安装一键包内置一键更新脚本；启动脚本可检测最新 GitHub Release，并只显示更新提醒。
-- 高级本机 OAuth 工作流支持个人本地 Codex 使用，并明确提示接口风险。
-- API 供应商配置，支持 Base URL、API Key、图像模型、调用方式和并发上限。
-- CLI 支持生成、参考图、图像编辑、mask 和 dry-run。
+- 二维码登录。
+- 账号密码登录 ChatGPT。
+- 浏览器 Cookie 导入。
+- 自动生成 Codex OAuth 登录 URL。
+- 官方 OpenAI API Key 作为上游账号材料。
 
-## 认证模式
+## 支持模型
 
-### 推荐：OpenAI-compatible API
+`GET /v1/models` 当前返回：
 
-稳定集成、团队使用、共享工作站或可能公开提供服务的场景，应使用 API 模式。
-你可以在 WebUI 中配置 Base URL、API Key、模型名和调用方式。
+| 模型 ID | 实际上游模型 | 类型 | 说明 |
+| --- | --- | --- | --- |
+| `gpt-image-2` | `gpt-image-2` | image | 推荐直接使用 |
+| `oai-4k-gpt-image-2` | `gpt-image-2` | image | 本项目别名 |
 
-### 高级本机模式：Codex / ChatGPT OAuth
+请求中也接受以下别名，并会归一化为 `gpt-image-2`：
 
-本项目可选复用本机 Codex / ChatGPT OAuth 登录态，调用 ChatGPT 内部后端接口。
-该模式只面向个人本机工作流。
+- `oai-4k-gpt-image-2`
+- `codex-gpt-image-2`
+- `pro-codex-gpt-image-2`
 
-这不是 OpenAI 官方推荐的 API 集成方式。接口可能随时变更、失效，也可能受到
-账号、产品或用量规则影响。生产环境、团队部署、公开服务或需要稳定性的场景，
-应优先使用 OpenAI-compatible API 模式。
+## 支持尺寸
 
-不要提交 OAuth 文件、API key、本地输入图、生成结果、任务 metadata、SQLite
-数据库或调试日志。
+接口只接受已知的 GPT-image-2 原生尺寸。默认开启严格尺寸校验：如果上游返回尺寸与请求尺寸不一致，本服务会返回错误，不会做任何手动裁剪或缩放。
 
-## 环境要求
+支持尺寸：
 
-- Python 3.11 或更高版本。
-- WebUI 依赖见 `requirements-webui.txt`。
-- 修改 TypeScript 或 CSS 时需要 `package.json` 中的前端工具。
+```text
+1024x1024
+1536x864
+864x1536
+2048x2048
+2048x1152
+1152x2048
+2880x2880
+2560x3200
+3200x2560
+2448x3264
+3264x2448
+2336x3504
+3504x2336
+2160x3840
+3840x2160
+1632x3808
+3808x1632
+```
 
-## 安装
+如需关闭严格校验，可设置：
 
 ```bash
-git clone https://github.com/kadevin/ilab-gpt-conjure.git
-cd ilab-gpt-conjure
+export OAI4K_STRICT_SIZE=0
+```
+
+关闭后服务不会检查实际图片尺寸，但仍不会裁剪、缩放或补边。
+
+## 快速启动
+
+### 1. 安装依赖
+
+```bash
+git clone git@github.com:carzygod/codex2api.git
+cd codex2api
+
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-webui.txt
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-webui.txt
 ```
 
-## 启动 WebUI
+项目代码已兼容 Python 3.10+。生产环境建议使用 Python 3.10 或更新版本。
 
-macOS：
+### 2. 启动服务
 
 ```bash
-open "Start WebUI.command"
+OAI4K_OUTPUT_ROOT=output/webui-outputs \
+OAI4K_SOURCE_DATA_ROOT=output/webui-outputs/source-data \
+python -m uvicorn codex_image.webui.app:app --host 0.0.0.0 --port 18788 --no-access-log
 ```
 
-Windows：
+启动后访问：
 
 ```text
-Start WebUI.bat
+http://127.0.0.1:18788/dashboard
 ```
 
-手动启动：
+首次访问 dashboard 时创建管理员账号。之后在后台添加上游 Codex / ChatGPT OAuth `access_token`，再创建对外使用的 API Key。
 
-```bash
-.venv/bin/python -m uvicorn codex_image.webui.app:app --host 127.0.0.1 --port 8787 --no-access-log
-```
+## 环境变量
 
-然后打开：
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `OAI4K_OUTPUT_ROOT` | `output/webui-outputs` | WebUI 输出、生成媒体、任务文件目录 |
+| `OAI4K_SOURCE_DATA_ROOT` | `output/webui-outputs/source-data` | WebUI 源数据目录 |
+| `OAI4K_CODEX_IMAGES_BASE_URL` | `https://chatgpt.com/backend-api/codex` | Codex images 后端地址 |
+| `OAI4K_INLINE_AUTH_PATH` | `output/oai4k-inline-auth.json` | 临时 AuthState 路径，仅用于构造客户端对象 |
+| `OAI4K_STRICT_SIZE` | `1` | 是否强校验实际返回尺寸 |
+| `CODEX_IMAGE_REQUEST_TIMEOUT_SECONDS` | `600` | 上游请求超时时间 |
+| `ILAB_CONJURE_DATA_DIR` | 空 | 上游 WebUI portable 数据目录兼容项 |
+| `ILAB_CONJURE_BUNDLE_DIR` | 空 | 上游 WebUI portable 包目录兼容项 |
+
+SQLite 管理库默认位于：
 
 ```text
-http://127.0.0.1:8787/
+output/oai4k.db
 ```
 
-## 免安装一键包
+其中保存 dashboard 用户、上游账号、API Key、媒体记录和日志。
 
-当前可用的一键包见 [下载 / Releases](RELEASES.md)，也可以直接打开
-[GitHub Release v0.5.0](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.5.0)。
+## API 使用
 
-这些包面向希望像 ComfyUI 一样“解压即用”的用户：
-
-1. 从下载页选择对应平台的 portable zip。
-2. 解压到普通用户目录。
-3. Windows 双击 `Start WebUI Portable.bat`；macOS 双击
-   `Start WebUI Portable.command`。
-4. 如果浏览器没有自动打开，手动访问 `http://127.0.0.1:8787/`。
-
-一键包内包含打包好的 CPython、已安装的 WebUI 依赖、应用源码、许可证文件，以及
-本地 `data/` 目录。设置、公用图库、输入图、输出图、任务数据库和日志都会写入
-`data/`。
-
-启动脚本会短暂检测最新 GitHub Release；发现新版本时会在 WebUI 左下角版本入口显示提醒，不会自动更新。
-更新已经解压的一键包时，先关闭 WebUI 服务窗口，然后运行 Windows 的
-`Update WebUI Portable.bat` 或 macOS 的 `Update WebUI Portable.command`。
-更新脚本会下载当前平台对应的最新 GitHub Release 资产，校验 SHA256，保留本地 `data/`，并把被替换文件备份到 `.backup/`。如果不希望启动时检查版本，可在启动前设置
-`ILAB_SKIP_VERSION_CHECK=1`。
-
-Apple Silicon Mac 下载 `macos_portable_arm64`，Intel Mac 下载
-`macos_portable_x64`。
-
-macOS 包是未签名 portable zip，不是已签名 `.app` 或 notarized DMG；构建它
-不需要 Apple Developer 账号。启动脚本会尝试在启动前移除当前解压目录内的
-quarantine 标记，再启动包内 Python.framework。如果 macOS 仍然拦截下载后的
-启动脚本，可以右键或 Control-click `Start WebUI Portable.command`，选择 Open，
-并在系统安全提示里再次确认 Open。也可以对解压目录执行：
+### 健康检查
 
 ```bash
-xattr -dr com.apple.quarantine /path/to/ilab-gpt-conjure_macos_portable_arm64
-# 或：
-xattr -dr com.apple.quarantine /path/to/ilab-gpt-conjure_macos_portable_x64
+curl http://127.0.0.1:18788/ping
 ```
 
-不要把一键包里的 Python、依赖、API key、OAuth 文件、本地输入图、生成结果、
-SQLite 数据库或日志提交回 Git。
-
-一键包打包和 CI 明确分离：`Portable Release` workflow 只会在 `CI` workflow 于
-`main` push 上成功完成后运行，并上传 zip 与 SHA256 文件作为 workflow artifact。
-如果该提交带有 `v*` tag，同一份文件会上传到对应 GitHub Release。对于已经通过
-CI 的 tag，也可以手动运行同一个 workflow，并填写 `ref` 与 `release_tag`。
-
-## WebUI 使用说明
-
-1. 在顶部选择认证来源。稳定使用建议选择 `API`，也就是 OpenAI-compatible
-   API 模式；本机 OAuth 模式只建议个人本地工作流使用。
-2. 添加参考图：支持上传、拖拽、粘贴、最近上传和公用图库。
-3. 编写提示词：可直接输入文本，也可插入图库、颜色和片段 chip，并选择原始、
-   保真或创意提示词模式。
-4. 设置数量、尺寸、方向、质量、输出格式和压缩率。
-5. 点击开始生成后，在左侧任务列表查看运行中和排队任务，在右侧预览区查看、
-   精选、重试、下载、打包或归档结果；完整历史在 `/history` 中搜索和筛选。
-
-## 公用图库（公共图库）
-
-公用图库是本地可复用参考图资源库，适合保存固定人物、角色设定、产品主图、
-品牌素材、风格参考和其他长期复用图片。
-
-- 上传图、最近上传图和生成结果都可以保存到公用图库。
-- 右侧图库抽屉支持分类、命名、提示词用途、引用备注、替换原图、删除和拖拽排序。
-- 可在图库抽屉中直接使用图片，也可以在提示词编辑器里输入 `@` 搜索并插入。
-- 图库文件只保存在本机。不要提交 `input/`、`inputs/`、`output/`、`outputs/`。
-  如果后续删除图库条目，旧任务可能显示缺失引用。
-
-## 三种 chip
-
-提示词编辑器支持三种原子 chip：
-
-- `@` 图库 chip：搜索公用图库，将选中的图片同步加入参考图输入，并为模型附加
-  可见的参考图说明。
-- `#` 颜色 chip：插入 `#FF6600` 这类十六进制颜色，适合约束商品、海报、品牌、
-  材质或背景色。
-- `~` 提示词片段 chip：用短标签插入常用提示词片段。编辑器保持短标签可见，
-  提交给模型时会展开为完整片段内容。
-
-提示词片段可以从选中文本收藏，之后可用 `~`、`～` 或常见波浪号变体再次调用；
-chip 支持查看完整内容、展开为正文、编辑和复用。
-
-## 提示词模板
-
-提示词模板用于保存更长、可复用的生成结构，不是短句片段。模板默认保存在本机
-`output/webui-prompt-templates.json`。
-
-在提示词区域点击 `管理模板库`，可以搜索、按分类筛选、收藏、新建、编辑、复制、
-插入、替换、导入和导出模板。模板可以从历史任务结果中选择小缩略图辅助识别。
-
-插入模板会写入当前可见提示词；替换模板会覆盖当前可见提示词。模板不会作为隐藏
-提示词注入。
-
-## CLI
+### 模型列表
 
 ```bash
-.venv/bin/python -m codex_image --prompt "A clean product photo of a ceramic mug" --out output/mug.png
+curl http://127.0.0.1:18788/v1/models \
+  -H "Authorization: Bearer sk-oai4k-your-key"
 ```
 
-更多参数请使用 `--help`。
-
-## 开发
+### 文生图
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
+curl http://127.0.0.1:18788/v1/images/generations \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "A cute cat sitting on a glass desk, cinematic studio light",
+    "size": "1024x1024",
+    "quality": "low",
+    "output_format": "png",
+    "response_format": "url",
+    "n": 1
+  }'
+```
+
+返回结构：
+
+```json
+{
+  "created": 1780000000,
+  "data": [
+    {
+      "url": "http://127.0.0.1:18788/api-media/example.png",
+      "revised_prompt": "...",
+      "size": "1024x1024"
+    }
+  ]
+}
+```
+
+### 返回 base64
+
+```bash
+curl http://127.0.0.1:18788/v1/images/generations \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "A clean 4K product render of a white cube",
+    "size": "3840x2160",
+    "response_format": "b64_json"
+  }'
+```
+
+### 图生图 / 图片编辑
+
+JSON 方式：
+
+```bash
+curl http://127.0.0.1:18788/v1/images/edits \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "Keep the character, change the background to a neon street",
+    "size": "1536x864",
+    "images": [
+      "https://example.com/input.png"
+    ]
+  }'
+```
+
+Multipart 方式：
+
+```bash
+curl http://127.0.0.1:18788/v1/images/edits \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -F "model=gpt-image-2" \
+  -F "prompt=Make it look like a premium poster" \
+  -F "size=1536x864" \
+  -F "image=@input.png"
+```
+
+## new-api 接入建议
+
+在 new-api 中作为 OpenAI-compatible 渠道添加：
+
+| 字段 | 填写 |
+| --- | --- |
+| Base URL | `http://你的服务器IP:18788/v1` |
+| API Key | dashboard 中创建的 `sk-oai4k-...` |
+| 模型 | `gpt-image-2`、`oai-4k-gpt-image-2` |
+| 类型 | 图片模型 / OpenAI-compatible |
+
+注意：
+
+- 本项目不提供视频模型。
+- 只支持图片相关接口。
+- 如果 new-api 的图片接口不透传 `size`，则无法利用 4K 尺寸能力。
+- 如果 new-api 对图片响应结构有额外假设，需要确保它兼容 `url` 或 `b64_json` 两种返回格式。
+
+## Dashboard 操作流
+
+1. 打开 `/dashboard`。
+2. 首次初始化管理员账号。
+3. 在“上游账号”中添加 Codex / ChatGPT OAuth `access_token`。
+4. 可选填写 `account_id`，用于传递 `Chatgpt-Account-Id` 请求头。
+5. 点击账号检查，确认账号材料格式可构造请求。
+6. 在“API Keys”中创建对外 API Key。
+7. 用 `sk-oai4k-...` 调用 `/v1/images/generations` 或接入 new-api。
+
+账号检查当前主要验证客户端请求材料是否可构造；最终可用性仍以真实生图请求成功为准。
+
+## 获取上游 access_token
+
+本服务需要的是 Codex / ChatGPT OAuth `access_token`。常见来源是本机 Codex 登录态：
+
+```text
+~/.codex/auth.json
+```
+
+该文件中通常包含：
+
+```json
+{
+  "tokens": {
+    "access_token": "...",
+    "refresh_token": "...",
+    "id_token": "..."
+  }
+}
+```
+
+填入 dashboard 时只需要 `access_token`。如果你知道对应的 ChatGPT account id，也可以填入 `account_id`。
+
+不要把 `auth.json`、`access_token`、API Key、SQLite 数据库或生成结果提交到 Git。
+
+## 原 WebUI
+
+除新增的 `/dashboard` 和 `/v1` API 外，原始图片工作台仍可访问：
+
+```text
+http://127.0.0.1:18788/
+http://127.0.0.1:18788/history
+```
+
+原 WebUI 支持：
+
+- 文生图、参考图生成、图片编辑。
+- 本地图库、最近上传、公用图片库。
+- 提示词片段、颜色 chip、模板库。
+- 队列、历史、归档、重试、下载。
+- `API` / `Codex` 两类认证来源切换。
+
+## 开发与验证
+
+```bash
+python -m compileall codex_image
 npm run check:webui
+python -m unittest discover -s tests -v
 ```
 
-修改前端 TypeScript 或 CSS 时，需要提交生成后的浏览器资源：
-`codex_image/webui/static/`。
+修改前端 TypeScript 或 CSS 后，需要提交生成后的静态资源：
 
-GitHub CI 会在 pull request 和推送到 `main` 时运行 Python 测试和 WebUI 前端检查。
-后续 Release 一键包打包流程应接在 CI 成功之后。
+```text
+codex_image/webui/static/
+```
 
-## 许可证
+## 安全边界
 
-本项目采用 GNU AGPLv3 协议。详见 `LICENSE`。
+- 这是 Web 反代方案，不是官方 API。
+- 上游 Codex / ChatGPT OAuth 可能因风控、额度、地区、账号状态失效。
+- 对外暴露服务时必须设置强 dashboard 密码，并只向可信调用方发放 API Key。
+- 不建议把 `/dashboard` 直接暴露到公网；如必须暴露，请至少叠加防火墙、反向代理访问控制或 VPN。
+- SQLite 数据库中包含敏感账号材料，备份和迁移时必须按密钥文件处理。
 
-如果你修改本软件，并通过网络向用户提供服务，需要按照 AGPLv3 要求开放对应源码。
+## License
 
-该许可证只适用于本项目代码，不授权项目名称、Logo、个人素材、API 凭据、用户
-提示词、输入图、输出图，或软件调用的模型/API 服务。
+本项目继承上游 `kadevin/ilab-gpt-conjure` 的 GNU AGPLv3 协议。详见 [LICENSE](LICENSE)。
 
-## 交流与定制开发
-
-欢迎添加微信交流 AI 编程、AI 生图和本地图片生成工作流经验。
-
-也接受合适的定制开发需求：
-
-- 定制软件工具：本地工作台、内部自动化、批量处理、数据看板和 AI 生产流程。
-- 企业网站：企业官网、产品展示、活动落地页和轻量后台管理系统。
-- 智能体网站：客服问答、知识库检索、内容生成和业务流程助手类 Web 应用。
-
-扫码添加微信时，可以备注 `iLab GPT Conjure` 或 `定制开发`，方便快速对齐需求。
-
-<p align="center">
-  <img src="assets/wechat-qr.jpg" alt="iLab WeChat QR Code" width="240" />
-</p>
+如果你修改本软件并通过网络向用户提供服务，需要按 AGPLv3 要求开放对应源代码。

@@ -1,296 +1,258 @@
-<h1 align="center">iLab GPT Conjure</h1>
+# codex2api / OAI-4K-01
 
-<p align="center">
-  <sub>GPT-image-2 WebUI workbench · Codex Responses / OpenAI-compatible API · Gallery, templates, history, and concurrent tasks.</sub>
-</p>
+`codex2api` is a GPT-image-2 Web reverse proxy and management service based on `kadevin/ilab-gpt-conjure`.
 
-<p align="center">
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/releases"><img alt="release" src="https://img.shields.io/github/v/release/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=release&color=0EA5E9"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/kadevin/ilab-gpt-conjure/actions/workflows/ci.yml/badge.svg?branch=main&event=push"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/commits/main"><img alt="last commit" src="https://img.shields.io/github/last-commit/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=last%20commit&color=10B981"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=stars&color=0284C7"></a>
-  <a href="https://github.com/kadevin/ilab-gpt-conjure/network/members"><img alt="forks" src="https://img.shields.io/github/forks/kadevin/ilab-gpt-conjure?style=flat-square&logo=github&label=forks&color=0369A1"></a>
-</p>
+It keeps the original local image WebUI and adds a managed OpenAI-compatible API layer:
 
-<p align="center">
-  <img alt="license AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-22C55E?style=flat-square">
-  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white">
-  <img alt="FastAPI WebUI" src="https://img.shields.io/badge/WebUI-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white">
-  <img alt="CLI" src="https://img.shields.io/badge/CLI-enabled-334155?style=flat-square">
-  <img alt="OpenAI-Compatible API" src="https://img.shields.io/badge/OpenAI--Compatible-API-111827?style=flat-square">
-  <img alt="Advanced OAuth mode" src="https://img.shields.io/badge/local%20OAuth-advanced%20mode-B45309?style=flat-square">
-</p>
+- Use Codex / ChatGPT OAuth `access_token` values as upstream account credentials.
+- Manage upstream accounts and local API keys from `/dashboard`.
+- Expose `/v1/models`, `/v1/images/generations`, and `/v1/images/edits`.
+- Support `gpt-image-2` text-to-image, image-to-image, and reference image editing.
+- Support native large image sizes, including `3840x2160` and `2160x3840`.
+- Validate generated image size by default without manual crop, resize, padding, or post-processing.
 
+> This project is not the official OpenAI API and is not an official production integration path. It depends on ChatGPT / Codex Web OAuth state and internal image endpoints, which may change or become unavailable.
 
-<p align="center">
-  English · <a href="README.md">中文</a> · <a href="RELEASES.md">Downloads / Releases</a>
-</p>
+## Capabilities
 
-<p align="center">
-  <img src="assets/UI_en.png" alt="iLab GPT Conjure WebUI screenshot" width="960" />
-</p>
+| Feature | Status | Notes |
+| --- | --- | --- |
+| WebUI workbench | Supported | Original generation, gallery, history, and queue features are preserved |
+| Admin dashboard | Supported | `/dashboard` manages users, upstream accounts, API keys, media records, and logs |
+| OpenAI-compatible model list | Supported | `GET /v1/models` |
+| Text-to-image | Supported | `POST /v1/images/generations` |
+| Image edit / image-to-image | Supported | `POST /v1/images/edits` |
+| Reference composition | Supported | `POST /v1/images/compositions` |
+| Multiple API keys | Supported | Keys can be created, disabled, and deleted in the dashboard |
+| Upstream account pool | Supported | Keys can bind to one account; unbound keys use a random available account |
+| Video generation | Not supported | `/v1/video/generations` returns `video_not_supported` |
+| Redis | Not required | Management data is stored in SQLite |
 
-## Overview
+## Authentication
 
-iLab GPT Conjure is an AI image generation WebUI workbench for GPT-image-2, with
-a companion CLI for local automation. It supports both Codex Responses and
-OpenAI-compatible API access, and includes shared gallery references, multi-type
-quick chips, prompt templates, concurrent tasks, a paged history library, and
-local queue management.
+Strictly counted as Codex login methods, this project supports **one** Codex login method:
 
-The recommended public integration path is OpenAI-compatible API mode, using
-the Images API or Responses API shape provided by your configured provider.
+| Scope | Count | Description |
+| --- | ---: | --- |
+| Codex login method | 1 | Reuse a Codex / ChatGPT OAuth `access_token` |
+| Codex backend modes | 2 | The original WebUI can use `images` or `responses`; these are not separate logins |
+| Public API authentication | 1 | Local `sk-oai4k-...` API keys |
 
-Download portable packages from [Downloads / Releases](RELEASES.md).
+The upstream project reads the local `~/.codex/auth.json` by default. This fork adds a dashboard account pool so you can paste compatible OAuth `access_token` values and expose them through local API keys.
 
-## Features
+This project does not support QR login, ChatGPT username/password login, browser cookie import, OAuth URL generation, or official OpenAI API keys as upstream account material.
 
-- GPT-image-2 text-to-image, reference-image generation, and image editing
-  workflows.
-- Codex Responses and OpenAI-compatible API access, with the API path
-  recommended for public or shared use.
-- Concurrent task execution, local queue state, paged history library,
-  thumbnails, and result archive.
-- Independent `/history` page with SQLite-backed pagination, search, filters,
-  grid/list views, and lazy detail loading.
-- Optional web search for Codex and API Responses image generation, plus prompt
-  and task ID search across recent and historical tasks.
-- Shared gallery references, recent reference images, color chips, prompt
-  snippet chips, and reusable prompt templates.
-- Chinese / English WebUI localization with a top-bar language switch and a
-  browser-local language preference.
-- Portable packages include one-click update scripts. Startup scripts can check
-  the latest GitHub Release and only print an update reminder.
-- Advanced local OAuth mode for personal Codex workflows, with clear risk
-  warnings and no account-usage probing.
-- API provider profiles with configurable base URL, API key, image model, API
-  mode, and concurrency.
-- CLI support for generation, image references, image edits, masks, and dry runs.
+## Models
 
-## Authentication modes
+`GET /v1/models` currently returns:
 
-### Recommended: OpenAI-compatible API
+| Model ID | Upstream model | Type | Notes |
+| --- | --- | --- | --- |
+| `gpt-image-2` | `gpt-image-2` | image | Recommended |
+| `oai-4k-gpt-image-2` | `gpt-image-2` | image | Project alias |
 
-Use this mode for stable integrations, shared workstations, team deployments, or
-anything that may become a public service. Configure the provider in the WebUI
-with a base URL, API key, model name, and API mode.
+The API also accepts these aliases and normalizes them to `gpt-image-2`:
 
-### Advanced local mode: Codex / ChatGPT OAuth
+- `oai-4k-gpt-image-2`
+- `codex-gpt-image-2`
+- `pro-codex-gpt-image-2`
 
-This project can optionally reuse a local Codex / ChatGPT OAuth session to call
-an internal ChatGPT backend endpoint. This mode is provided for local personal
-workflows only.
+## Supported Sizes
 
-It is not an officially recommended OpenAI API integration path. The endpoint
-may change without notice, may stop working, and may be subject to account,
-product, or usage restrictions. For stable integrations, production usage,
-shared deployments, or public services, use OpenAI-compatible API mode instead.
+Only known native GPT-image-2 sizes are accepted. Strict size validation is enabled by default. If the upstream response does not match the requested size, this service returns an error and does not crop, resize, or pad the image.
 
-Never commit OAuth files, API keys, local inputs, generated outputs, task
-metadata, SQLite databases, or debug logs.
+```text
+1024x1024
+1536x864
+864x1536
+2048x2048
+2048x1152
+1152x2048
+2880x2880
+2560x3200
+3200x2560
+2448x3264
+3264x2448
+2336x3504
+3504x2336
+2160x3840
+3840x2160
+1632x3808
+3808x1632
+```
 
-## Requirements
-
-- Python 3.11 or newer.
-- WebUI dependencies from `requirements-webui.txt`.
-- Optional frontend tooling from `package.json` when editing TypeScript or CSS.
-
-## Install
+Disable strict validation if needed:
 
 ```bash
-git clone https://github.com/kadevin/ilab-gpt-conjure.git
-cd ilab-gpt-conjure
+export OAI4K_STRICT_SIZE=0
+```
+
+This only disables inspection; it still does not perform manual image edits.
+
+## Quick Start
+
+```bash
+git clone git@github.com:carzygod/codex2api.git
+cd codex2api
+
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-webui.txt
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-webui.txt
 ```
 
-## Start the WebUI
-
-macOS:
+Start the service:
 
 ```bash
-open "Start WebUI.command"
+OAI4K_OUTPUT_ROOT=output/webui-outputs \
+OAI4K_SOURCE_DATA_ROOT=output/webui-outputs/source-data \
+python -m uvicorn codex_image.webui.app:app --host 0.0.0.0 --port 18788 --no-access-log
 ```
 
-Windows:
+Open:
 
 ```text
-Start WebUI.bat
+http://127.0.0.1:18788/dashboard
 ```
 
-Manual:
+Create the admin account on first visit. Then add upstream Codex / ChatGPT OAuth `access_token` values and create local API keys.
 
-```bash
-.venv/bin/python -m uvicorn codex_image.webui.app:app --host 127.0.0.1 --port 8787 --no-access-log
-```
+## Environment Variables
 
-Then open:
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OAI4K_OUTPUT_ROOT` | `output/webui-outputs` | WebUI output, generated media, and task files |
+| `OAI4K_SOURCE_DATA_ROOT` | `output/webui-outputs/source-data` | WebUI source-data directory |
+| `OAI4K_CODEX_IMAGES_BASE_URL` | `https://chatgpt.com/backend-api/codex` | Codex images backend URL |
+| `OAI4K_INLINE_AUTH_PATH` | `output/oai4k-inline-auth.json` | Temporary AuthState path used to build the client |
+| `OAI4K_STRICT_SIZE` | `1` | Whether to validate returned image dimensions |
+| `CODEX_IMAGE_REQUEST_TIMEOUT_SECONDS` | `600` | Upstream request timeout |
+| `ILAB_CONJURE_DATA_DIR` | empty | Portable WebUI compatibility setting |
+| `ILAB_CONJURE_BUNDLE_DIR` | empty | Portable WebUI compatibility setting |
+
+SQLite management data is stored in:
 
 ```text
-http://127.0.0.1:8787/
+output/oai4k.db
 ```
 
-## Portable packages
+## API Examples
 
-Download the current portable packages from [Downloads / Releases](RELEASES.md),
-or open [GitHub Release v0.5.0](https://github.com/kadevin/ilab-gpt-conjure/releases/tag/v0.5.0)
-directly.
-
-These packages are intended for users who want a ComfyUI-style unzip-and-run
-experience:
-
-1. Download the portable zip for your platform from the release page.
-2. Extract it into a normal user directory.
-3. Run `Start WebUI Portable.bat` on Windows, or double-click
-   `Start WebUI Portable.command` on macOS.
-4. Open `http://127.0.0.1:8787/` if the browser does not open automatically.
-
-The portable package contains bundled CPython, installed WebUI dependencies,
-the app source, license files, and a local `data/` directory for settings,
-gallery files, inputs, outputs, task databases, and logs.
-
-To update an extracted portable package, close the WebUI server window and run
-`Update WebUI Portable.bat` on Windows or `Update WebUI Portable.command` on
-macOS. The startup launcher may briefly check the latest GitHub Release and
-show a reminder from the WebUI version entry when a newer version exists, but it never updates
-automatically. The updater downloads the latest matching GitHub Release asset,
-verifies its SHA256 file, preserves `data/`, and saves replaced files under
-`.backup/`.
-
-Choose `macos_portable_arm64` for Apple Silicon Macs and
-`macos_portable_x64` for Intel Macs.
-
-The macOS packages are unsigned portable zips, not signed `.app` bundles or
-notarized DMGs, and they do not require an Apple Developer account to build.
-The launcher tries to remove quarantine attributes from its own extracted folder
-before starting the bundled Python framework. If macOS still blocks the launcher
-after download, right-click or Control-click `Start WebUI Portable.command`,
-choose Open, then confirm Open again in the macOS security prompt. You can also
-remove quarantine from the extracted folder:
+Health check:
 
 ```bash
-xattr -dr com.apple.quarantine /path/to/ilab-gpt-conjure_macos_portable_arm64
-# or:
-xattr -dr com.apple.quarantine /path/to/ilab-gpt-conjure_macos_portable_x64
+curl http://127.0.0.1:18788/ping
 ```
 
-Do not commit portable package contents back to Git. API keys, OAuth files,
-local inputs, generated outputs, SQLite databases, and logs must stay local.
-
-Release packaging is intentionally separate from CI: the `Portable Release`
-workflow runs only after the `CI` workflow has completed successfully on a push
-to `main`, then uploads the zip and SHA256 file as workflow artifacts. If the
-commit is tagged with a `v*` tag, the same assets are uploaded to that GitHub
-Release. For a tagged commit that already passed CI, the same workflow can also
-be run manually with `ref` and `release_tag`.
-
-## WebUI usage
-
-1. Choose an authentication source from the top bar. Use `API` for the
-   recommended OpenAI-compatible mode, or the advanced local OAuth mode only for
-   a personal local workflow.
-2. Add reference images by upload, drag-and-drop, paste, recent uploads, or the
-   public gallery.
-3. Write the prompt directly, insert gallery/color/snippet chips when useful,
-   and choose the prompt mode: original, fidelity, or creative.
-4. Set image count, size, orientation, quality, output format, and compression.
-   Selected aspect ratios are also appended to the model prompt as an explicit
-   instruction, for example `将宽高比设为 16:9`, so Codex or API Responses proxies
-   that ignore size parameters can still receive the intended ratio.
-5. Start generation, track running and queued tasks in the left task list, then
-   review, select, retry, download, or archive results from the preview area.
-
-## Public gallery
-
-The public gallery is a local reusable reference library for people, characters,
-products, brand assets, style references, and any image you want to reuse.
-
-- Save uploaded images, recent uploads, or generated results into the gallery.
-- Manage images in the right-side gallery drawer with categories, names, prompt
-  roles, reference notes, replacement images, deletion, and drag sorting.
-- Insert a gallery image into the current task from the gallery drawer or by
-  typing `@` in the prompt editor.
-- Gallery files stay local. Do not commit `input/`, `inputs/`, `output/`, or
-  `outputs/`. If a gallery item is later deleted, older tasks may show a missing
-  reference.
-
-## Prompt chips
-
-The prompt editor supports three atomic chip types:
-
-- `@` gallery chip: searches the public gallery, inserts the selected image into
-  reference inputs, and adds visible reference notes for the model.
-- `#` color chip: inserts a hexadecimal color value such as `#FF6600`; useful
-  for product, poster, brand, material, or background color constraints.
-- `~` snippet chip: inserts a saved prompt snippet by short tag. The editor keeps
-  the short tag visible, while the model prompt expands it to the full snippet
-  content.
-
-Snippet chips can be created from selected prompt text and can later be viewed,
-expanded into plain text, edited, or reused with `~`, `～`, or common tilde
-variants.
-
-## Prompt templates
-
-Prompt templates are for longer reusable prompt structures, not short inline
-phrases. They are stored locally in `output/webui-prompt-templates.json`.
-
-Use `Manage Prompt Templates` in the prompt area to search, filter by category,
-favorite, create, edit, copy, insert, replace, import, or export templates.
-Templates can use small thumbnails from historical results as visual cues.
-
-Inserting a template writes into the visible prompt editor. Replacing a template
-overwrites the visible prompt text. Templates are not injected as hidden prompts.
-
-## CLI
+Models:
 
 ```bash
-.venv/bin/python -m codex_image --prompt "A clean product photo of a ceramic mug" --out output/mug.png
+curl http://127.0.0.1:18788/v1/models \
+  -H "Authorization: Bearer sk-oai4k-your-key"
 ```
 
-Use `--help` for all CLI options.
+Text-to-image:
+
+```bash
+curl http://127.0.0.1:18788/v1/images/generations \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "A cute cat sitting on a glass desk, cinematic studio light",
+    "size": "1024x1024",
+    "quality": "low",
+    "output_format": "png",
+    "response_format": "url",
+    "n": 1
+  }'
+```
+
+Image edit:
+
+```bash
+curl http://127.0.0.1:18788/v1/images/edits \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "Keep the character, change the background to a neon street",
+    "size": "1536x864",
+    "images": ["https://example.com/input.png"]
+  }'
+```
+
+Multipart image edit:
+
+```bash
+curl http://127.0.0.1:18788/v1/images/edits \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -F "model=gpt-image-2" \
+  -F "prompt=Make it look like a premium poster" \
+  -F "size=1536x864" \
+  -F "image=@input.png"
+```
+
+## new-api Integration
+
+Add it as an OpenAI-compatible channel:
+
+| Field | Value |
+| --- | --- |
+| Base URL | `http://your-server-ip:18788/v1` |
+| API Key | A dashboard-created `sk-oai4k-...` key |
+| Models | `gpt-image-2`, `oai-4k-gpt-image-2` |
+| Type | Image model / OpenAI-compatible |
+
+Notes:
+
+- No video models are exposed.
+- Only image APIs are supported.
+- To use 4K sizes, the intermediary must pass through `size`.
+- The intermediary must accept either `url` or `b64_json` image responses.
+
+## Dashboard Flow
+
+1. Open `/dashboard`.
+2. Initialize the admin user.
+3. Add a Codex / ChatGPT OAuth `access_token`.
+4. Optionally fill `account_id` so requests include `Chatgpt-Account-Id`.
+5. Create an API key.
+6. Use the `sk-oai4k-...` key with `/v1/images/generations` or new-api.
+
+The account check currently validates that request material can be built. A real image generation call remains the final availability test.
+
+## Original WebUI
+
+The original workbench is still available:
+
+```text
+http://127.0.0.1:18788/
+http://127.0.0.1:18788/history
+```
 
 ## Development
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
+python -m compileall codex_image
 npm run check:webui
+python -m unittest discover -s tests -v
 ```
 
-When changing frontend TypeScript or CSS, commit the generated browser assets in
-`codex_image/webui/static/`.
+When changing frontend TypeScript or CSS, commit generated assets under:
 
-GitHub CI runs the Python test suite and WebUI frontend checks on pull requests
-and pushes to `main`. Release packaging should run only after CI succeeds.
+```text
+codex_image/webui/static/
+```
+
+## Security
+
+- This is a Web reverse proxy, not an official API.
+- Upstream OAuth state can fail due to risk control, quota, region, or account changes.
+- Use a strong dashboard password and issue API keys only to trusted clients.
+- Do not publicly expose `/dashboard` without additional access control.
+- Treat `output/oai4k.db` as a secret file.
 
 ## License
 
-This project is licensed under GNU AGPLv3. See `LICENSE`.
-
-If you modify this software and make it available to users over a network, you
-must also make the corresponding source code available under the same license.
-
-This license applies to the software code. It does not grant rights to the
-project name, logo, personal assets, API credentials, user prompts, input
-images, output images, or model/API services used with the software.
-
-## Contact And Custom Work
-
-Feel free to connect on WeChat to discuss AI programming, AI image generation,
-and local image generation workflows.
-
-I also take selected custom development work:
-
-- Local software tools: internal workbenches, batch automation, data dashboards,
-  and AI-assisted production workflows.
-- Business websites: company sites, product showcases, landing pages, and
-  lightweight admin systems.
-- Agent-powered websites: customer support, knowledge-base Q&A, content
-  generation, and workflow assistant web apps.
-
-Scan the QR code and mention `iLab GPT Conjure` or `custom development` so I can
-understand the context quickly.
-
-<p align="center">
-  <img src="assets/wechat-qr.jpg" alt="iLab WeChat QR Code" width="240" />
-</p>
+This project inherits the GNU AGPLv3 license from `kadevin/ilab-gpt-conjure`. See [LICENSE](LICENSE).
