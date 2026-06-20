@@ -246,6 +246,40 @@ curl http://127.0.0.1:18788/v1/images/edits \
   -F "image=@input.png"
 ```
 
+### 图文参考生图
+
+图文参考生图必须走编辑/组合接口，不走纯文生图接口：
+
+```text
+POST /v1/images/edits
+POST /v1/images/compositions
+```
+
+`POST /v1/images/generations` 只用于纯文生图，不读取参考图字段。
+
+JSON 请求支持以下参考图字段，字段值可以是图片 URL、`data:image/...;base64,...`，或 OpenAI 风格对象 `{"url":"..."}` / `{"image_url":{"url":"..."}}`：
+
+```text
+image
+images
+input_image
+input_images
+reference_images
+file_paths
+filePaths
+```
+
+Multipart 请求支持 OpenAI 风格的 `image` / `images` 文件字段，`mask` 可选：
+
+```bash
+curl http://127.0.0.1:18788/v1/images/edits \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -F "model=gpt-image-2-4k" \
+  -F "prompt=参考这张图生成一张 4K 电影海报，保持主体一致" \
+  -F "size=3840x2160" \
+  -F "image=@reference.png"
+```
+
 ## new-api 接入建议
 
 在 new-api 中作为 OpenAI-compatible 渠道添加：

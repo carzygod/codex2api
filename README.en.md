@@ -199,6 +199,40 @@ curl http://127.0.0.1:18788/v1/images/edits \
   -F "image=@input.png"
 ```
 
+Reference-image generation:
+
+Reference-image generation must use one of the edit/composition endpoints:
+
+```text
+POST /v1/images/edits
+POST /v1/images/compositions
+```
+
+`POST /v1/images/generations` is text-to-image only and does not read reference image fields.
+
+JSON requests accept these reference image fields. Values can be image URLs, `data:image/...;base64,...` data URLs, or OpenAI-style objects such as `{"url":"..."}` / `{"image_url":{"url":"..."}}`:
+
+```text
+image
+images
+input_image
+input_images
+reference_images
+file_paths
+filePaths
+```
+
+Multipart requests accept OpenAI-style `image` / `images` file fields. `mask` is optional:
+
+```bash
+curl http://127.0.0.1:18788/v1/images/edits \
+  -H "Authorization: Bearer sk-oai4k-your-key" \
+  -F "model=gpt-image-2-4k" \
+  -F "prompt=Use this reference image to create a 4K cinematic poster while preserving the main subject" \
+  -F "size=3840x2160" \
+  -F "image=@reference.png"
+```
+
 ## new-api Integration
 
 Add it as an OpenAI-compatible channel:
